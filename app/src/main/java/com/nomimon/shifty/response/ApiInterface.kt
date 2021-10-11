@@ -1,5 +1,6 @@
 package com.nomimon.shifty.response
 
+import com.nomimon.shifty.model.ConfirmStatus
 import com.nomimon.shifty.model.LoginResponse
 import com.nomimon.shifty.model.MyAvailableShiftsResponse
 import io.reactivex.Single
@@ -15,9 +16,10 @@ interface ApiInterface {
         // https://api-courier-produk.skipthedishes.com/v2/couriers/" + userID + "/shifts/" + URLEncoder.encode(shift_value) + "/confirm
     }
 
-    @GET("v2/couriers/a51e1c26-a453-441c-8182-662e9142fe29/shifts/{shift_value}/confirm")
-    fun confirmGrabAllShifts(@Path("shift_value") shiftValue: String
-    ): Call<LoginResponse>
+    @GET("v2/couriers/{userId}/shifts/{encode}/confirm")
+    fun confirmGrabAllShifts(@Path("userId") userId: String,
+        @Path("encode") encode: String
+    ): Call<ConfirmStatus>
 
     @GET("v2/couriers/{userId}/shifts/scheduled?includeAvailable=true&timezone=Europe/London&hasCourierRefreshedOpenShifts=true")
     fun startRun(@Path("userId") userId: String): Call<MyAvailableShiftsResponse>

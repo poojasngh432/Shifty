@@ -3,16 +3,21 @@ package com.nomimon.shifty
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
+import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import com.nomimon.shifty.databinding.ActivityMainBinding
+import com.nomimon.shifty.model.ConfirmStatus
 import com.nomimon.shifty.model.MyAvailableShiftsResponse
 import io.reactivex.disposables.CompositeDisposable
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 
 
 class MainActivity : AppCompatActivity() {
@@ -60,53 +65,47 @@ class MainActivity : AppCompatActivity() {
                     val availableShifts = response.body()!!.availableShifts
                     val noOfShifts = availableShifts?.size
                     Log.d("TESTING", "no of shifts : " + noOfShifts)
-
+                    Toast.makeText(this@MainActivity, "No of available shifts: $noOfShifts", Toast.LENGTH_SHORT).show()
                     val lisOfIds = mutableListOf<String>()
                     if (availableShifts != null) {
                         for (shift in availableShifts) {
-                            lisOfIds.add(shift.id)
-                            Log.d("TESTING", "id : " + shift.id)
+                            val id = shift.id
+                            lisOfIds.add(id)
+                            Log.d("TESTING", "id : " + id)
+                            var encodedId = URLEncoder.encode(id)
+                            Log.d("TESTING", "encodedId : " + encodedId)
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+                                encodedId = URLEncoder.encode(id, StandardCharsets.UTF_8.toString())
+                            }
+                            Log.d("TESTING", "encodedId : " + encodedId)
+                            confirmShiftApi(id)
                         }
                     }
                 }
             }
 
             override fun onFailure(call: Call<MyAvailableShiftsResponse>, t: Throwable) {
-//                editor.putBoolean("isLoggedIn", false)
-                Toast.makeText(this@MainActivity, "Api call failure. Check your details", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@MainActivity, "Api call failure. Try again", Toast.LENGTH_SHORT).show()
             }
         })
+    }
 
+    private fun confirmShiftApi(id: String) {
+        val call: Call<ConfirmStatus> = BaseApp.apiInterface.confirmGrabAllShifts(BaseApp.userId, id)
+        call.enqueue(object : Callback<ConfirmStatus> {
+            override fun onResponse(call: Call<ConfirmStatus>, response: Response<ConfirmStatus>) {
+                if (response.body() != null) {
+                    val status = response.body()!!.status
+                    if (status.contains("CONFIRM")) {
+                        val shiftNumber = BaseApp.noOfShiftsGrabbed++
+                        Toast.makeText(this@MainActivity, "Shift no. $shiftNumber GRABBED!", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
 
-
-
-
-
-//
-//        val response = BaseApp.apiInterface?.startRun()
-//        response?.enqueue(object : Callback<LoginResponse> {
-//            override fun onResponse(call: Call<LoginResponse>, response: Response<LoginResponse>) {
-//                Toast.makeText(this@MainActivity, "Api call Success: ${BaseApp.email} ${BaseApp.password}", Toast.LENGTH_SHORT).show()
-//                if (response?.body() != null) {
-////                    val jSONObject = JSONObject(response.body().toString())
-////                    val userToken = jSONObject.getString("token")
-////                    val userId = jSONObject.getString("id")
-////                    val userName = jSONObject.getString("name")
-//                    val pref: SharedPreferences = binding.root.context.getSharedPreferences(BaseApp.PREF_NAME, Context.MODE_PRIVATE)
-//                    val editor = pref.edit()
-////                    editor.putString(BaseApp.userToken, userToken)
-////                    editor.putString(BaseApp.userId, userId)
-////                    editor.putString(BaseApp.userName, userName)
-////                    editor.apply()
-//                    val intent =  Intent(this@MainActivity, MainActivity::class.java)
-//                    startActivity(intent)
-//                }
-//
-//            }
-//
-//            override fun onFailure(call: retrofit2.Call<LoginResponse>, t: Throwable) {
-//                Toast.makeText(this@MainActivity, "Api call Failure. Check your details.", Toast.LENGTH_SHORT).show()
-//            }
-//        })
+            override fun onFailure(call: Call<ConfirmStatus>, t: Throwable) {
+                Toast.makeText(this@MainActivity, "Api call failure. Try again", Toast.LENGTH_SHORT).show()
+            }
+        })
     }
 }

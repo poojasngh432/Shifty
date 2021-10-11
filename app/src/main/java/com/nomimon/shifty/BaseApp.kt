@@ -28,6 +28,7 @@ class BaseApp : Application() {
         const val REQUEST_TIMEOUT_DURATION = 10
         lateinit var deviceName: String
         lateinit var okHttpClient: OkHttpClient.Builder
+        var noOfShiftsGrabbed = 0
     }
 
     override fun onCreate() {
