@@ -2,4 +2,7 @@
     <string name="app_name">Shifty</string>
     <string name="enter_email">Enter email</string>
     <string name="enter_password">Enter password</string>
+
+    <string name="welcome_text">Welcome, %s: %s</string>
+    <string name="shifts_num">Number of shifts available: %s</string>
 </resources>

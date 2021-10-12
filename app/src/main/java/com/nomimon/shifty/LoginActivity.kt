@@ -8,7 +8,6 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.nomimon.shifty.databinding.ActivityMain2Binding
 import com.nomimon.shifty.model.LoginResponse
-import io.reactivex.disposables.Disposable
 import okhttp3.MediaType
 import okhttp3.RequestBody
 import org.json.JSONException
@@ -21,8 +20,6 @@ import java.util.*
 
 class LoginActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMain2Binding
-    private lateinit var requestBodyParams: MutableMap<String, String>
-    private lateinit var disposable: Disposable
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -65,7 +62,7 @@ class LoginActivity : AppCompatActivity() {
         val parse: MediaType? = MediaType.parse("application/json")
         val requestBody2 = RequestBody.create(parse, jSONObject.toString())
 
-        val call: Call<LoginResponse> = BaseApp.apiInterface.login(requestBody2)
+        val call: Call<LoginResponse> = BaseApp.apiInterfaceLogin.login(requestBody2)
         call.enqueue(object : Callback<LoginResponse> {
             override fun onResponse(call: Call<LoginResponse>, response: Response<LoginResponse>) {
                 val id = response.body()?.id

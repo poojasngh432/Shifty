@@ -4,13 +4,11 @@ import android.app.Application
 import android.content.Context
 import android.os.Build
 import android.provider.Settings
-import android.util.Log
 import com.nomimon.shifty.response.ApiInterface
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
-
 
 class BaseApp : Application() {
 
@@ -23,6 +21,7 @@ class BaseApp : Application() {
         var userToken: String = ""
         val PREF_NAME = "SHIFTY_LOGIN_PREFS"
         val appVersion = BuildConfig.VERSION_NAME
+        lateinit var apiInterfaceLogin: ApiInterface
         lateinit var apiInterface: ApiInterface
         const val DEBUG = true
         const val REQUEST_TIMEOUT_DURATION = 10
@@ -58,7 +57,7 @@ class BaseApp : Application() {
         if (!isLoggedIn) {
             //LOGIN PAGE
             // Define the interceptor, add authentication headers
-            val interceptor = Interceptor { chain ->
+            val interceptor1 = Interceptor { chain ->
                 val newRequest = chain.request().newBuilder()
                     .addHeader("Content-Type", "text/plain")
                     .addHeader("Content-Length", Constants.CONTENT_LENGTH)
@@ -72,7 +71,7 @@ class BaseApp : Application() {
             }
 
             okHttpClient = OkHttpClient.Builder()
-            okHttpClient.interceptors().add(interceptor)
+            okHttpClient.interceptors().add(interceptor1)
             val client = okHttpClient.build()
 
             val retrofit: Retrofit = Retrofit.Builder()
@@ -80,8 +79,9 @@ class BaseApp : Application() {
                 .addConverterFactory(GsonConverterFactory.create())
                 .client(client)
                 .build()
-            apiInterface = retrofit.create(ApiInterface::class.java)
-        } else {
+            apiInterfaceLogin = retrofit.create(ApiInterface::class.java)
+        }
+
             //MAIN PAGE
             // Define the interceptor, add authentication headers
             val interceptor = Interceptor { chain ->
@@ -114,7 +114,6 @@ class BaseApp : Application() {
                 .client(client)
                 .build()
             apiInterface = retrofit.create(ApiInterface::class.java)
-        }
     }
 
 }

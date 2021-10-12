@@ -10,24 +10,44 @@
     <TextView
         android:layout_height="wrap_content"
         android:layout_width="wrap_content"
-        android:id="@+id/one"
-        android:text="Hello World!"
+        android:id="@+id/welcome"
+        tools:text="@string/welcome_text"
+        android:textStyle="bold"
+        android:textColor="@color/light_grey_silver"
+        android:fontFamily="serif"
         app:layout_constraintLeft_toLeftOf="parent"
         app:layout_constraintRight_toRightOf="parent"
         app:layout_constraintTop_toTopOf="parent"
-        android:layout_margin="36dp"
+        android:layout_margin="26dp"
         android:padding="8dp" />
 
     <androidx.appcompat.widget.AppCompatButton
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:id="@+id/startBtn"
-        android:background="@color/start_grey"
         android:text="Start Run"
-        android:layout_marginTop="16dp"
+        android:textStyle="bold"
+        android:textColor="@color/light_grey_silver"
+        android:fontFamily="serif"
+        android:layout_margin="16dp"
         android:padding="8dp"
         app:layout_constraintLeft_toLeftOf="parent"
         app:layout_constraintRight_toRightOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/one"/>
+        app:layout_constraintTop_toBottomOf="@+id/welcome"/>
+
+
+    <TextView
+        android:layout_height="wrap_content"
+        android:layout_width="wrap_content"
+        android:id="@+id/shiftsNo"
+        tools:text="Number of shifts available: 10"
+        android:textStyle="normal"
+        android:textColor="@color/light_grey_silver"
+        android:fontFamily="serif"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toRightOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        android:layout_marginBottom="16dp"
+        android:padding="8dp" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
