@@ -9,6 +9,7 @@
     <color name="white">#FFFFFFFF</color>
 
 
+    <color name="login_blue">#068ff2</color>
     <color name="black_bg">#2a343e</color>
     <color name="black_material_design">#121212</color>
     <color name="orange_stop">#e1752d</color>

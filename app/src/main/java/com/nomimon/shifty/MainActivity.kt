@@ -9,9 +9,13 @@ import android.util.Log
 import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.Observer
+import androidx.work.*
 import com.nomimon.shifty.databinding.ActivityMainBinding
+import com.nomimon.shifty.model.AvailableShift
 import com.nomimon.shifty.model.ConfirmStatus
 import com.nomimon.shifty.model.MyAvailableShiftsResponse
+import com.nomimon.shifty.response.MyWorkManager
 import io.reactivex.disposables.CompositeDisposable
 import okhttp3.MediaType
 import okhttp3.RequestBody
@@ -27,14 +31,16 @@ import kotlin.math.log
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private var buttonText: String = "START"
-    private lateinit var callStartRun: Call<MyAvailableShiftsResponse>
-    private lateinit var callGrabShifts: Call<ConfirmStatus>
+    private var myWorkManager: OneTimeWorkRequest? = null
+    private var isStartButtonClicked = false
+    var myAvailableShifts: ArrayList<AvailableShift> = ArrayList<AvailableShift>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        startRunApi()
         setData()
         setOnClickListeners()
     }
@@ -48,8 +54,7 @@ class MainActivity : AppCompatActivity() {
             loginState = "Please login!"
         }
         binding.welcome.text = this.getString(R.string.welcome_text, BaseApp.userName, loginState)
-        callStartRun = BaseApp.apiInterface.startRun(BaseApp.userId)
-        startRunApi()
+        binding.shiftsNum.text = getString(R.string.shifts_num, BaseApp.noOfShiftsGrabbed.toString())
     }
 
     private fun setOnClickListeners() {
@@ -57,77 +62,132 @@ class MainActivity : AppCompatActivity() {
             if ("START".equals(binding.startBtn.text)) {
                 binding.startBtn.apply {
                     text = "STOP"
-                    setBackgroundColor(this.context.resources.getColor(R.color.orange_stop))
-                    if(callStartRun.isCanceled)
-                        startRunApi()
+                    setBackgroundColor(this.context.resources.getColor(R.color.start_grey))
                 }
-            } else if ("STOP".equals(binding.startBtn.text)){
+                isStartButtonClicked = true
+                startGrabbingShifts()
+            } else if ("STOP".equals(binding.startBtn.text)) {
                 binding.startBtn.apply {
                     text = "START"
-                    setBackgroundColor(this.context.resources.getColor(R.color.start_grey))
-                    if (callStartRun.isExecuted)
-                        callStartRun.cancel()
+                    setBackgroundColor(this.context.resources.getColor(R.color.orange_stop))
+
+                    stopGrabbingShifts()
                 }
+                isStartButtonClicked = false
+            }
+        }
+
+        binding.logoutImageview.setOnClickListener {
+            val pref: SharedPreferences = this.getSharedPreferences(BaseApp.PREF_NAME, Context.MODE_PRIVATE)
+            val editor = pref.edit()
+            editor.putString("EMAIL_PREF", "")
+            editor.putString("PASSWORD_PREF", "")
+            editor.putBoolean("isLoggedIn", false)
+            editor.apply()
+            val intent =  Intent(this, LoginActivity::class.java)
+            startActivity(intent)
+            finish()
+        }
+    }
+
+    private fun startGrabbingShifts() {
+        Log.d("TESTING", "startGrabbingShifts started")
+        val noOfShifts = myAvailableShifts.size
+        if (noOfShifts > 0) {
+            Log.d("TESTING", "no of shifts : " + noOfShifts)
+            Toast.makeText(this@MainActivity, "No of available shifts available: $noOfShifts", Toast.LENGTH_SHORT)
+                .show()
+            val lisOfIds = mutableListOf<String>()
+            if (myAvailableShifts.isNotEmpty()) {
+                var lastindex = 0
+                for (shift in myAvailableShifts) {
+                    lastindex++
+                    val isLastIndex: Boolean = lastindex == noOfShifts
+
+                    val id = shift.id
+                    lisOfIds.add(id)
+                    Log.d("TESTING", "id : $id")
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+                        val encodedId = URLEncoder.encode(id, StandardCharsets.UTF_8.toString())
+                        Log.d("TESTING", "encodedId : " + encodedId)
+                    }
+                    if (isStartButtonClicked) {
+                        Log.d("TESTING", "confirm shift api clicked and index is: $lastindex")
+                        confirmShiftApi(id, isLastIndex)
+                    }
+                }
+            }
+        } else {
+            if(isStartButtonClicked) {
+                startRunApi()
             }
         }
     }
 
+    private fun stopGrabbingShifts() {
+        Log.d("TESTING", "stopGrabbingShifts started")
+        val workManager = WorkManager.getInstance(this@MainActivity)
+        //Cancels work with the given id if it isn't finished.
+        myWorkManager?.let { it1 -> workManager.cancelWorkById(it1.id) }
+    }
+
     private fun startRunApi() {
-        callStartRun = BaseApp.apiInterface.startRun(BaseApp.userId)
+        Log.d("TESTING", "startRunApi started")
+        val callStartRun = BaseApp.apiInterface.startRun(BaseApp.userId)
         callStartRun.enqueue(object : Callback<MyAvailableShiftsResponse> {
             override fun onResponse(call: Call<MyAvailableShiftsResponse>, response: Response<MyAvailableShiftsResponse>) {
                 if (response.body() != null) {
                     val availableShifts = response.body()!!.availableShifts
-                    val noOfShifts = availableShifts?.size ?: 0
-                    Log.d("TESTING", "no of shifts : " + noOfShifts)
-                    binding.shiftsNo.text = getString(R.string.shifts_num, noOfShifts.toString())
-                    Toast.makeText(this@MainActivity, "No of available shifts available: $noOfShifts", Toast.LENGTH_SHORT).show()
-                    val lisOfIds = mutableListOf<String>()
-                    if (availableShifts != null) {
-                        for (shift in availableShifts) {
-                            val id = shift.id
-                            lisOfIds.add(id)
-                            Log.d("TESTING", "id : " + id)
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
-                               val encodedId = URLEncoder.encode(id, StandardCharsets.UTF_8.toString())
-                                Log.d("TESTING", "encodedId : " + encodedId)
-                            }
-                            confirmShiftApi(id)
-                        }
+                    if (availableShifts != null && availableShifts.isNotEmpty()) {
+                        Log.d("TESTING", "availableShifts size is : ${availableShifts.size}")
+                        addToMyAvailableShiftsList(availableShifts)
+                    }
+                    if(isStartButtonClicked) {
+                        Log.d("TESTING", "isStartButtonClicked")
+                        startRunApi()
                     }
                 }
             }
 
             override fun onFailure(call: Call<MyAvailableShiftsResponse>, t: Throwable) {
                 Toast.makeText(this@MainActivity, "Api call failure. Try again", Toast.LENGTH_SHORT).show()
+                if(isStartButtonClicked) {
+                    Log.d("TESTING", "isStartButtonClicked")
+                    startRunApi()
+                }
             }
         })
     }
 
-    private fun confirmShiftApi(id: String) {
-        val parse: MediaType? = MediaType.parse("application/json")
-        val requestBody = RequestBody.create(parse, JSONObject().toString())
-        callGrabShifts = BaseApp.apiInterface.confirmGrabAllShifts(BaseApp.userId, id, requestBody)
-        callGrabShifts.enqueue(object : Callback<ConfirmStatus> {
-            override fun onResponse(call: Call<ConfirmStatus>, response: Response<ConfirmStatus>) {
-                if (response.body() != null) {
-                    val status = response.body()!!.status
-                    if (status.contains("CONFIRM")) {
-                        val shiftNumber = BaseApp.noOfShiftsGrabbed++
-                        Toast.makeText(this@MainActivity, "Shift no. $shiftNumber GRABBED!", Toast.LENGTH_SHORT).show()
+    private fun addToMyAvailableShiftsList(availableShifts: List<AvailableShift>) {
+      myAvailableShifts.addAll(availableShifts)
+    }
+
+    private fun confirmShiftApi(id: String, isLastIndex: Boolean) {
+        val data = Data.Builder()
+        data.putString("SHIFT_ID", id)
+        data.putBoolean("IS_LAST_INDEX", isLastIndex)
+
+        myWorkManager = OneTimeWorkRequestBuilder<MyWorkManager>()
+            .setInputData(data.build()).build()
+        WorkManager.getInstance(this).enqueue(myWorkManager!!)
+        //Getting work status By using request ID
+        WorkManager.getInstance(this)
+            .getWorkInfoByIdLiveData(myWorkManager!!.id)
+            .observe(this, Observer { workInfo: WorkInfo? ->
+                if (workInfo != null) {
+                    val progress = workInfo.progress
+                    Log.d("TESTING"," progress is - $progress")
+                    binding.shiftsNum.text = getString(R.string.shifts_num, BaseApp.noOfShiftsGrabbed.toString())
+                    // Do something with progress information
+                    if (isLastIndex) {
+                        Log.d("TESTING", "is it the last index? - $isLastIndex")
+                        if(isStartButtonClicked) {
+                            startRunApi()
+                        }
                     }
                 }
-                if(callStartRun.isCanceled)
-                    callGrabShifts.cancel()
-            }
-
-            override fun onFailure(call: Call<ConfirmStatus>, t: Throwable) {
-                if (callGrabShifts.isCanceled) {
-                    Toast.makeText(this@MainActivity, "Api call was cancelled", Toast.LENGTH_SHORT).show()
-                } else {
-                    Toast.makeText(this@MainActivity, "Api call failure. Try again", Toast.LENGTH_SHORT).show()
-                }
-            }
-        })
+            })
     }
+
 }

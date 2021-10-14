@@ -14,11 +14,10 @@ interface ApiInterface {
         const val BASE_URL = "https://api-courier-produk.skipthedishes.com/"
     }
 
-    @GET("v2/couriers/{userId}/shifts/{encode}/confirm")
+    @POST("v2/couriers/{userId}/shifts/{encode}/confirm")
     fun confirmGrabAllShifts(
         @Path("userId") userId: String,
-        @Path("encode") encode: String,
-        @Body requestBody: RequestBody
+        @Path("encode") encode: String
     ): Call<ConfirmStatus>
 
     @GET("v2/couriers/{userId}/shifts/scheduled?includeAvailable=true&timezone=Europe/London&hasCourierRefreshedOpenShifts=true")

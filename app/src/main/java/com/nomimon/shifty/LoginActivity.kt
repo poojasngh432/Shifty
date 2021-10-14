@@ -82,14 +82,16 @@ class LoginActivity : AppCompatActivity() {
                 editor.putString("TOKEN_PREF", token)
                 if (!id.isNullOrEmpty() && !token.isNullOrEmpty()) {
                     editor.putBoolean("isLoggedIn", true)
+                    editor.apply()
                     Toast.makeText(this@LoginActivity, "Api call success", Toast.LENGTH_SHORT).show()
                     val intent =  Intent(this@LoginActivity, MainActivity::class.java)
                     startActivity(intent)
+                    finish()
                 } else {
                     editor.putBoolean("isLoggedIn", false)
+                    editor.apply()
                     Toast.makeText(this@LoginActivity, "Check your details and try again", Toast.LENGTH_SHORT).show()
                 }
-                editor.apply()
             }
 
             override fun onFailure(call: Call<LoginResponse>, t: Throwable) {
@@ -97,6 +99,10 @@ class LoginActivity : AppCompatActivity() {
                 Toast.makeText(this@LoginActivity, "Api call failure. Check your details", Toast.LENGTH_SHORT).show()
             }
         })
+    }
 
+    override fun onBackPressed() {
+        super.onBackPressed()
+        finish()
     }
 }
