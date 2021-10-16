@@ -28,4 +28,11 @@ interface ApiInterface {
     fun login(@Body requestBody: RequestBody
     ): Call<LoginResponse>
 
+    @GET("https://run.mocky.io/v3/b755dcbc-8fca-410f-9173-1c6fb3a890c4")
+    fun startMockRun(): Call<MyAvailableShiftsResponse>
+
+    @GET("https://run.mocky.io/v3/f70d0235-ee7b-4c8c-b91a-76f4fa6168ae")
+    fun confirmMockGrabAllShifts(
+    ): Call<ConfirmStatus>
+
 }

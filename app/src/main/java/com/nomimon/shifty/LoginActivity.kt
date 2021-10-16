@@ -17,7 +17,6 @@ import retrofit2.Callback
 import retrofit2.Response
 import java.util.*
 
-
 class LoginActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMain2Binding
 
@@ -83,20 +82,26 @@ class LoginActivity : AppCompatActivity() {
                 if (!id.isNullOrEmpty() && !token.isNullOrEmpty()) {
                     editor.putBoolean("isLoggedIn", true)
                     editor.apply()
-                    Toast.makeText(this@LoginActivity, "Api call success", Toast.LENGTH_SHORT).show()
-                    val intent =  Intent(this@LoginActivity, MainActivity::class.java)
+                    Toast.makeText(this@LoginActivity, "Api call success", Toast.LENGTH_SHORT)
+                        .show()
+                    BaseApp.isLoggedIn = true
+                    val intent = Intent(this@LoginActivity, MainActivity::class.java)
                     startActivity(intent)
                     finish()
                 } else {
+                    BaseApp.isLoggedIn = false
                     editor.putBoolean("isLoggedIn", false)
                     editor.apply()
-                    Toast.makeText(this@LoginActivity, "Check your details and try again", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@LoginActivity, "Check your details and try again", Toast.LENGTH_SHORT)
+                        .show()
                 }
             }
 
             override fun onFailure(call: Call<LoginResponse>, t: Throwable) {
+                BaseApp.isLoggedIn = false
                 editor.putBoolean("isLoggedIn", false)
-                Toast.makeText(this@LoginActivity, "Api call failure. Check your details", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@LoginActivity, "Api call failure. Check your details", Toast.LENGTH_SHORT)
+                    .show()
             }
         })
     }

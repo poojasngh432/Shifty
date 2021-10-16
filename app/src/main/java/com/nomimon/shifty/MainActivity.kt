@@ -3,77 +3,149 @@ package com.nomimon.shifty
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
-import android.os.Build
 import android.os.Bundle
 import android.util.Log
-import android.widget.Toast
-import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.Observer
 import androidx.work.*
 import com.nomimon.shifty.databinding.ActivityMainBinding
 import com.nomimon.shifty.model.AvailableShift
-import com.nomimon.shifty.model.ConfirmStatus
 import com.nomimon.shifty.model.MyAvailableShiftsResponse
 import com.nomimon.shifty.response.MyWorkManager
-import io.reactivex.disposables.CompositeDisposable
-import okhttp3.MediaType
-import okhttp3.RequestBody
-import org.json.JSONObject
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
-import java.net.URLEncoder
-import java.nio.charset.StandardCharsets
-import kotlin.math.log
 
 
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
-    private var buttonText: String = "START"
-    private var myWorkManager: OneTimeWorkRequest? = null
-    private var isStartButtonClicked = false
-    var myAvailableShifts: ArrayList<AvailableShift> = ArrayList<AvailableShift>()
+
+    companion object {
+        private var isStartButtonClicked = false
+        var availableShiftsIdList: ArrayList<String> = ArrayList()
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
-
-        startRunApi()
         setData()
+        checkForAvailableShifts()
         setOnClickListeners()
     }
 
-    private fun setData() {
-        binding.startBtn.text = buttonText
-        var loginState = ""
-        if (BaseApp.isLoggedIn) {
-            loginState = "You're logged in!"
-        } else {
-            loginState = "Please login!"
+    private fun checkForAvailableShifts() {
+        val checkShiftsApiCall = BaseApp.apiInterface.startRun(BaseApp.userId)
+        checkShiftsApiCall.enqueue(object : Callback<MyAvailableShiftsResponse> {
+            override fun onResponse(call: Call<MyAvailableShiftsResponse>, response: Response<MyAvailableShiftsResponse>) {
+                if (response.body() != null && BaseApp.isLoggedIn) {
+                    val availableShifts = response.body()!!.availableShifts
+                    if (availableShifts != null && availableShifts.isNotEmpty()) {
+                        Log.d("TESTING", "(MainActivity) : checkForAvailableShifts() - availableShifts size is : ${availableShifts.size}")
+                        storeAvailableIdsList(availableShifts)
+                    } else {
+                        Log.d("TESTING", "(MainActivity) : checkForAvailableShifts() shifts empty - calling again")
+                        checkForAvailableShifts()
+                    }
+                }
+            }
+
+            override fun onFailure(call: Call<MyAvailableShiftsResponse>, t: Throwable) {
+                Log.d("TESTING", "(MainActivity) : checkForAvailableShifts() Failure")
+                if (isStartButtonClicked) {
+                    Log.d("TESTING", "checkForAvailableShifts failure when start is active so calling again")
+                    checkForAvailableShifts()
+                }
+            }
+        })
+    }
+
+    private fun storeAvailableIdsList(availableShifts: List<AvailableShift>) {
+        availableShiftsIdList.clear()
+        val noOfShifts = availableShifts.size
+        if (noOfShifts > 0) {
+            Log.d("TESTING", "(MainActivity) : storeAvailableIdsList() - no of shifts : $noOfShifts")
+            for ((index, shift) in availableShifts.withIndex()) {
+                availableShiftsIdList.add(shift.id)
+                Log.d("TESTING", "(MainActivity) : id : ${shift.id}")
+            }
+            if (availableShiftsIdList.size > 0 && isStartButtonClicked) {
+                startGrabbingShifts()
+            }
         }
-        binding.welcome.text = this.getString(R.string.welcome_text, BaseApp.userName, loginState)
+    }
+
+    private fun confirmShiftApi(availableShiftsIdList: ArrayList<String>) {
+        val data = Data.Builder()
+        data.putStringArray("IDS_LIST", availableShiftsIdList.toArray(arrayOfNulls<String>(availableShiftsIdList.size)))
+
+        val oneTimeWorkRequest = OneTimeWorkRequestBuilder<MyWorkManager>().setInputData(data.build())
+            .build()
+        WorkManager.getInstance(applicationContext).enqueue(oneTimeWorkRequest)
+        val workmanager = WorkManager.getInstance(this)
+        availableShiftsIdList.clear()
+        if (isStartButtonClicked) {
+            //Getting work status By using request ID
+            workmanager.getWorkInfoByIdLiveData(oneTimeWorkRequest.id)
+                .observe(this, Observer { workInfo: WorkInfo? ->
+                    if (workInfo != null && workInfo.state.isFinished) {
+                        val progress = workInfo.progress
+                        Log.d("TESTING", "(MainActivity) :  observing work manager - progress is - $progress HAS TO BE SUCCESS/CANCELLED/FAILED STATE")
+                        Log.d("TESTING", "(MainActivity) : observing work manager - BaseApp.noOfShiftsGrabbed value - ${BaseApp.noOfShiftsGrabbed}")
+                        binding.shiftsNum.text = getString(R.string.shifts_num, BaseApp.noOfShiftsGrabbed.toString())
+                        checkForAvailableShifts()
+                    }
+                })
+        } else {
+            workmanager.cancelWorkById(oneTimeWorkRequest.id)
+        }
+    }
+
+    private fun startGrabbingShifts() {
+        Log.d("TESTING", "(MainActivity) : startGrabbingShifts() started")
+        if (isStartButtonClicked) {
+            if (availableShiftsIdList.size > 0) {
+                confirmShiftApi(availableShiftsIdList)
+            } else {
+                Log.d("TESTING", "calling checkForAvailableShifts from inside startGrabbingShifts() when noOfShifts is 0")
+                checkForAvailableShifts()
+            }
+        }
+    }
+
+    private fun setData() {
+        binding.startStopBtn.text = "START"
+        var loginStateText = ""
+        if (BaseApp.isLoggedIn) {
+            loginStateText = "You're logged in!"
+        } else {
+            loginStateText = "Please login!"
+        }
+        binding.welcome.text = this.getString(R.string.welcome_text, BaseApp.userName, loginStateText)
         binding.shiftsNum.text = getString(R.string.shifts_num, BaseApp.noOfShiftsGrabbed.toString())
     }
 
+    private fun stopGrabbingShifts() {
+        Log.d("TESTING", "(MainActivity) : stopGrabbingShifts started")
+        confirmShiftApi(availableShiftsIdList)
+    }
+
     private fun setOnClickListeners() {
-        binding.startBtn.setOnClickListener {
-            if ("START".equals(binding.startBtn.text)) {
-                binding.startBtn.apply {
+        binding.startStopBtn.setOnClickListener {
+            if ("START".equals(binding.startStopBtn.text)) {
+                isStartButtonClicked = true
+                binding.startStopBtn.apply {
                     text = "STOP"
                     setBackgroundColor(this.context.resources.getColor(R.color.start_grey))
                 }
-                isStartButtonClicked = true
                 startGrabbingShifts()
-            } else if ("STOP".equals(binding.startBtn.text)) {
-                binding.startBtn.apply {
+            } else if ("STOP".equals(binding.startStopBtn.text)) {
+                isStartButtonClicked = false
+                binding.startStopBtn.apply {
                     text = "START"
                     setBackgroundColor(this.context.resources.getColor(R.color.orange_stop))
-
-                    stopGrabbingShifts()
                 }
-                isStartButtonClicked = false
+                stopGrabbingShifts()
             }
         }
 
@@ -84,110 +156,32 @@ class MainActivity : AppCompatActivity() {
             editor.putString("PASSWORD_PREF", "")
             editor.putBoolean("isLoggedIn", false)
             editor.apply()
-            val intent =  Intent(this, LoginActivity::class.java)
+            BaseApp.isLoggedIn = false
+            val intent = Intent(this, LoginActivity::class.java)
             startActivity(intent)
             finish()
         }
     }
 
-    private fun startGrabbingShifts() {
-        Log.d("TESTING", "startGrabbingShifts started")
-        val noOfShifts = myAvailableShifts.size
-        if (noOfShifts > 0) {
-            Log.d("TESTING", "no of shifts : " + noOfShifts)
-            Toast.makeText(this@MainActivity, "No of available shifts available: $noOfShifts", Toast.LENGTH_SHORT)
-                .show()
-            val lisOfIds = mutableListOf<String>()
-            if (myAvailableShifts.isNotEmpty()) {
-                var lastindex = 0
-                for (shift in myAvailableShifts) {
-                    lastindex++
-                    val isLastIndex: Boolean = lastindex == noOfShifts
+    override fun onRestart() {
+        super.onRestart()
+        Log.d("TESTING", "onRestart - calling checkForAvailableShifts()")
+        checkForAvailableShifts()
+        setDataForRestartState()
+    }
 
-                    val id = shift.id
-                    lisOfIds.add(id)
-                    Log.d("TESTING", "id : $id")
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
-                        val encodedId = URLEncoder.encode(id, StandardCharsets.UTF_8.toString())
-                        Log.d("TESTING", "encodedId : " + encodedId)
-                    }
-                    if (isStartButtonClicked) {
-                        Log.d("TESTING", "confirm shift api clicked and index is: $lastindex")
-                        confirmShiftApi(id, isLastIndex)
-                    }
-                }
+    private fun setDataForRestartState() {
+        if (isStartButtonClicked) {
+            binding.startStopBtn.apply {
+                text = "STOP"
+                setBackgroundColor(this.context.resources.getColor(R.color.start_grey))
             }
         } else {
-            if(isStartButtonClicked) {
-                startRunApi()
+            binding.startStopBtn.apply {
+                text = "START"
+                setBackgroundColor(this.context.resources.getColor(R.color.orange_stop))
             }
         }
-    }
-
-    private fun stopGrabbingShifts() {
-        Log.d("TESTING", "stopGrabbingShifts started")
-        val workManager = WorkManager.getInstance(this@MainActivity)
-        //Cancels work with the given id if it isn't finished.
-        myWorkManager?.let { it1 -> workManager.cancelWorkById(it1.id) }
-    }
-
-    private fun startRunApi() {
-        Log.d("TESTING", "startRunApi started")
-        val callStartRun = BaseApp.apiInterface.startRun(BaseApp.userId)
-        callStartRun.enqueue(object : Callback<MyAvailableShiftsResponse> {
-            override fun onResponse(call: Call<MyAvailableShiftsResponse>, response: Response<MyAvailableShiftsResponse>) {
-                if (response.body() != null) {
-                    val availableShifts = response.body()!!.availableShifts
-                    if (availableShifts != null && availableShifts.isNotEmpty()) {
-                        Log.d("TESTING", "availableShifts size is : ${availableShifts.size}")
-                        addToMyAvailableShiftsList(availableShifts)
-                    }
-                    if(isStartButtonClicked) {
-                        Log.d("TESTING", "isStartButtonClicked")
-                        startRunApi()
-                    }
-                }
-            }
-
-            override fun onFailure(call: Call<MyAvailableShiftsResponse>, t: Throwable) {
-                Toast.makeText(this@MainActivity, "Api call failure. Try again", Toast.LENGTH_SHORT).show()
-                if(isStartButtonClicked) {
-                    Log.d("TESTING", "isStartButtonClicked")
-                    startRunApi()
-                }
-            }
-        })
-    }
-
-    private fun addToMyAvailableShiftsList(availableShifts: List<AvailableShift>) {
-      myAvailableShifts.addAll(availableShifts)
-    }
-
-    private fun confirmShiftApi(id: String, isLastIndex: Boolean) {
-        val data = Data.Builder()
-        data.putString("SHIFT_ID", id)
-        data.putBoolean("IS_LAST_INDEX", isLastIndex)
-
-        myWorkManager = OneTimeWorkRequestBuilder<MyWorkManager>()
-            .setInputData(data.build()).build()
-        WorkManager.getInstance(this).enqueue(myWorkManager!!)
-        //Getting work status By using request ID
-        WorkManager.getInstance(this)
-            .getWorkInfoByIdLiveData(myWorkManager!!.id)
-            .observe(this, Observer { workInfo: WorkInfo? ->
-                if (workInfo != null) {
-                    val progress = workInfo.progress
-                    Log.d("TESTING"," progress is - $progress")
-                    binding.shiftsNum.text = getString(R.string.shifts_num, BaseApp.noOfShiftsGrabbed.toString())
-                    // Do something with progress information
-                    if (isLastIndex) {
-                        Log.d("TESTING", "is it the last index? - $isLastIndex")
-                        if(isStartButtonClicked) {
-                            startRunApi()
-                        }
-                    }
-                }
-            })
     }
 
 }

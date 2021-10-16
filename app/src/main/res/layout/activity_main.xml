@@ -24,9 +24,9 @@
     <androidx.appcompat.widget.AppCompatButton
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:id="@+id/startBtn"
+        android:id="@+id/startStopBtn"
         android:background="@color/orange_stop"
-        android:text="Start Run"
+        android:text="START"
         android:textStyle="bold"
         android:textColor="@color/light_grey_silver"
         android:fontFamily="serif"
