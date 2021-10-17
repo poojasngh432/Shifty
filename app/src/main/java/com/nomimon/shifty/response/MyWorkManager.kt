@@ -15,6 +15,8 @@ import com.nomimon.shifty.BaseApp
 import com.nomimon.shifty.MainActivity
 import com.nomimon.shifty.R
 import com.nomimon.shifty.model.ConfirmStatus
+import com.nomimon.shifty.model.MyAvailableShiftsResponse
+import org.json.JSONException
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
@@ -28,101 +30,133 @@ class MyWorkManager(appContext: Context, workerParams: WorkerParameters):
     override fun doWork(): Result {
         val idsList = inputData.getStringArray("IDS_LIST")
         val idsArrayList = idsList?.toCollection(ArrayList())
-        var response = ""
-        if (idsArrayList != null) {
-            try {
-                response = callConfirmShiftApi(idsArrayList)
-                if (response.contains("CONFIRM")) {
-                    Log.d("TESTING","(MyWorkManager) : doWork() CONFIRM RESPONSE from callConfirmShiftApi(idsArrayList)")
-                    return Result.success()
-                } else {
-                    Log.d("TESTING","(MyWorkManager) : doWork() response value - $response")
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-                return Result.failure()
-            }
-        }
+
+        updateNotification()
+
+//        if (idsArrayList != null) {
+//            try {
+//                callConfirmShiftApi(idsArrayList)
+////                if (response.contains("CONFIRM")) {
+////                    Log.d("TESTING","(MyWorkManager) : doWork() CONFIRM RESPONSE from callConfirmShiftApi(idsArrayList)")
+////                    return Result.success()
+////                }
+//            } catch (e: Exception) {
+//                e.printStackTrace()
+//                return Result.failure()
+//            }
+//        }
 
         return Result.success()
     }
 
-    private fun callConfirmShiftApi(idsArrayList: ArrayList<String>): String {
-        var response = ""
-        for ((index, id) in idsArrayList.withIndex()) {
-            Log.d("TESTING","(MyWorkManager) : callConfirmShiftApi() calling for id - $id and index - $index")
-            response = callApiForId(id)
-            Thread.sleep(800)
-            if(index == idsArrayList.lastIndex) {
-                response = "CONFIRM"
-            }
-        }
-        return response
-    }
+    fun updateNotification() {
 
-    private fun callApiForId(id: String): String {
-        var shiftGrabStatus = ""
-        Log.d("TESTING","(MyWorkManager) : callApiForId() for id - $id")
-        callGrabShifts = BaseApp.apiInterface.confirmGrabAllShifts(BaseApp.userId, id)
-        callGrabShifts.enqueue(object : Callback<ConfirmStatus> {
-            override fun onResponse(call: Call<ConfirmStatus>, response: Response<ConfirmStatus>) {
-                if (response.body() != null) {
-                    shiftGrabStatus = response.body()!!.status
-                    if (shiftGrabStatus != null) {
-                        if (shiftGrabStatus.contains("CONFIRM")) {
-                            Log.d("TESTING","(MyWorkManager) : shiftGrabStatus - $shiftGrabStatus for id - $id")
-                            Log.d("TESTING","(MyWorkManager) : noOfShiftsGrabbed - ${++BaseApp.noOfShiftsGrabbed}")
-                            sendNotification(applicationContext)
-                            shiftGrabStatus = "CONFIRM"
-                            return
-                        } else {
-                            Log.d("TESTING","(MyWorkManager) : NOT CONFIRM - shiftGrabStatus - $shiftGrabStatus for id - $id")
-                            shiftGrabStatus = "NOT CONFIRM"
-                            return
+        val checkShiftsApiCall = BaseApp.apiInterface.startRun(BaseApp.userId)
+        checkShiftsApiCall.enqueue(object : retrofit2.Callback<MyAvailableShiftsResponse> {
+
+            override fun onResponse(call: Call<MyAvailableShiftsResponse>, response: retrofit2.Response<MyAvailableShiftsResponse>) {
+                if (response.body() != null && BaseApp.isLoggedIn) {
+                    val availableShifts = response.body()!!.availableShifts
+                    if (availableShifts != null && availableShifts.isNotEmpty()) {
+                        Log.d("TESTING", "(MainActivity) : checkForAvailableShifts() - availableShifts size is : ${availableShifts.size}")
+                        val noOfShifts = availableShifts.size
+                        if (noOfShifts > 0) {
+                            Log.d("TESTING", "(MainActivity) : storeAvailableIdsList() - no of shifts : $noOfShifts")
+                            for ((index, shift) in availableShifts.withIndex()) {
+                                MainActivity.availableShiftsIdList.add(shift.id)
+                                Log.d("TESTING", "(MainActivity) : id : ${shift.id}")
+                                try {
+                                    val id = shift.id
+                                    val callGrabShifts = BaseApp.apiInterface.confirmGrabAllShifts(BaseApp.userId, id)
+                                    callGrabShifts.enqueue(object : retrofit2.Callback<ConfirmStatus> {
+                                        override fun onResponse(call: Call<ConfirmStatus>, response: retrofit2.Response<ConfirmStatus>) {
+                                            if (response.body() != null) {
+                                                val shiftGrabStatus = response.body()!!.status
+                                                if (shiftGrabStatus != null) {
+                                                    if (shiftGrabStatus.contains("CONFIRM")) {
+                                                        Log.d("TESTING", "(MyWorkManager) : shiftGrabStatus - ${shiftGrabStatus} for id - $id")
+                                                        Log.d("TESTING", "(MyWorkManager) : noOfShiftsGrabbed - ${++BaseApp.noOfShiftsGrabbed} for id - $id")
+                                                        return
+                                                    } else {
+                                                        Log.d("TESTING", "(MyWorkManager) : shiftGrabStatus - ${shiftGrabStatus} for id - $id")
+                                                        return
+                                                    }
+                                                } else {
+                                                    Log.d("TESTING", "(MyWorkManager) : shiftGrabStatus is NULL - ${shiftGrabStatus} for id - $id")
+                                                    return
+                                                }
+                                            }
+                                        }
+
+                                        override fun onFailure(call: Call<ConfirmStatus>, t: Throwable) {
+                                            Log.d("TESTING", "(MyWorkManager) : call failure")
+                                            return
+                                        }
+                                    })
+
+
+                                } catch (e3: JSONException) {
+                                    e3.printStackTrace()
+                                }
+                                Thread.sleep(1000)
+                            }
                         }
-                    } else {
-                        Log.d("TESTING","(MyWorkManager) : NULL - shiftGrabStatus - $shiftGrabStatus for id - $id")
-                        shiftGrabStatus = "RETRY"
-                        return
                     }
-                } else {
-                    shiftGrabStatus = "NULL"
-                    return
                 }
             }
 
-            override fun onFailure(call: Call<ConfirmStatus>, t: Throwable) {
-                Log.d("TESTING","(MyWorkManager) : call failure")
-                shiftGrabStatus = "FAILURE"
-                return
+            override fun onFailure(call: Call<MyAvailableShiftsResponse>, t: Throwable) {
+                Log.d("TESTING", "(MainActivity) : checkForAvailableShifts() Failure")
             }
         })
-
-        Log.d("TESTING","(MyWorkManager) : callApiForId() for shiftGrabStatus - $shiftGrabStatus")
-        return shiftGrabStatus
     }
 
-    private fun sendNotification(context: Context) {
-        val mBuilder = NotificationCompat.Builder(context.applicationContext, "notify_001")
-        val i = Intent(context.applicationContext, MainActivity::class.java)
-        val pendingIntent = PendingIntent.getActivity(context, 0, i, 0)
-        val bigText = NotificationCompat.BigTextStyle()
-        bigText.bigText("Shifts grabbed successfully")
-        bigText.setBigContentTitle("Success")
-        bigText.setSummaryText("${BaseApp.noOfShiftsGrabbed} Shift grabbed")
-        mBuilder.setContentIntent(pendingIntent)
-        mBuilder.setSmallIcon(R.drawable.ic_shifty)
-//        mBuilder.setContentTitle("Looking for more available shifts")
-//        mBuilder.setContentText("Your text")
-        mBuilder.priority = Notification.PRIORITY_MAX
-        mBuilder.setStyle(bigText)
-        val mNotificationManager: NotificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channelId = "Your_channel_id"
-            val channel = NotificationChannel(channelId, "Shifty Channel", NotificationManager.IMPORTANCE_HIGH)
-            mNotificationManager.createNotificationChannel(channel)
-            mBuilder.setChannelId(channelId)
-        }
-        mNotificationManager.notify(0, mBuilder.build())
-    }
+//    private fun callConfirmShiftApi(idsArrayList: ArrayList<String>) {
+//        for ((index, id) in idsArrayList.withIndex()) {
+//            Thread.sleep(500)
+//            Log.d("TESTING","(MyWorkManager) : for loop and calling API id - $id and index - $index")
+//            callApiForId(id)
+//            Thread.sleep(1000)
+//        }
+//    }
+//
+//    private fun callApiForId(id: String) {
+//        Log.d("TESTING","(MyWorkManager) : callApiForId() for id - $id")
+//
+//        try {
+//            callGrabShifts = BaseApp.apiInterface.confirmGrabAllShifts(BaseApp.userId, id)
+//            callGrabShifts.enqueue(object : Callback<ConfirmStatus> {
+//                override fun onResponse(call: Call<ConfirmStatus>, response: Response<ConfirmStatus>) {
+//                    if (response.body() != null) {
+//                        val shiftGrabStatus = response.body()!!.status
+//                        if (shiftGrabStatus != null) {
+//                            if (shiftGrabStatus.contains("CONFIRM")) {
+//                                Log.d("TESTING","(MyWorkManager) : shiftGrabStatus - ${shiftGrabStatus} for id - $id")
+//                                Log.d("TESTING","(MyWorkManager) : noOfShiftsGrabbed - ${++BaseApp.noOfShiftsGrabbed} for id - $id")
+//                                Thread.sleep(400)
+//                                sendNotification(applicationContext)
+//                                return
+//                            } else {
+//                                Log.d("TESTING","(MyWorkManager) : shiftGrabStatus - ${shiftGrabStatus} for id - $id")
+//                                return
+//                            }
+//                        } else {
+//                            Log.d("TESTING","(MyWorkManager) : shiftGrabStatus is NULL - ${shiftGrabStatus} for id - $id")
+//                            Thread.sleep(400)
+//                            return
+//                        }
+//                    }
+//                }
+//
+//                override fun onFailure(call: Call<ConfirmStatus>, t: Throwable) {
+//                    Log.d("TESTING","(MyWorkManager) : call failure")
+//                    return
+//                }
+//            })
+//            Thread.sleep(1000)
+//        } catch (e: java.lang.Exception) {
+//            e.printStackTrace()
+//        }
+//    }
+
 }

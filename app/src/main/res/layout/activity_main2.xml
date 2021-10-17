@@ -56,8 +56,7 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:imeOptions="actionNext"
-            android:inputType="textEmailAddress"
-            android:maxLength="25" />
+            android:inputType="textEmailAddress" />
 
     </com.google.android.material.textfield.TextInputLayout>
 
@@ -80,8 +79,7 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:imeOptions="actionDone"
-            android:inputType="textPassword"
-            android:maxLength="25"/>
+            android:inputType="textPassword" />
 
     </com.google.android.material.textfield.TextInputLayout>
 
