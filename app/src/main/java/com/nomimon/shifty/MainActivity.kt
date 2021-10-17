@@ -11,11 +11,14 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.text.Editable
+import android.text.TextWatcher
 import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.NotificationCompat
 import androidx.work.*
 import com.nomimon.shifty.databinding.ActivityMainBinding
+import java.lang.Exception
 
 
 class MainActivity : AppCompatActivity() {
@@ -24,6 +27,7 @@ class MainActivity : AppCompatActivity() {
     companion object {
         private var isStartButtonClicked = false
         var availableShiftsIdList: ArrayList<String> = ArrayList()
+        var DELAY = 0
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -54,24 +58,44 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setOnClickListeners() {
+        binding.setdelayET.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence, start: Int, count: Int, after: Int) {
+
+            }
+
+            override fun onTextChanged(s: CharSequence, start: Int, before: Int, count: Int) {
+            }
+
+            override fun afterTextChanged(s: Editable) {
+                DELAY = s.toString().toInt()
+            }
+
+        })
         binding.startStopBtn.setOnClickListener {
-            binding.shiftsNum.text = getString(R.string.shifts_num, BaseApp.noOfShiftsGrabbed.toString())
-            val intent = Intent(this@MainActivity.getApplicationContext(), MyService::class.java)
-            if ("START".equals(binding.startStopBtn.text)) {
-                isStartButtonClicked = true
-                binding.startStopBtn.apply {
-                    text = "STOP"
-                    setBackgroundColor(this.context.resources.getColor(R.color.start_grey))
+            try {
+                BaseApp.noOfShiftsGrabbed = 0
+                binding.shiftsNum.text = getString(R.string.shifts_num, BaseApp.noOfShiftsGrabbed.toString())
+                val intent = Intent(this@MainActivity.getApplicationContext(), MyService::class.java)
+                if ("START".equals(binding.startStopBtn.text)) {
+                    isStartButtonClicked = true
+                    binding.startStopBtn.apply {
+                        text = "STOP"
+                        setBackgroundColor(this.context.resources.getColor(R.color.start_grey))
+                    }
+                    sendNotification(applicationContext)
+                    intent.action = "START"
+                    startService(intent)
+                } else if ("STOP".equals(binding.startStopBtn.text)) {
+                    isStartButtonClicked = false
+                    binding.startStopBtn.apply {
+                        text = "START"
+                        setBackgroundColor(this.context.resources.getColor(R.color.orange_stop))
+                    }
+                    intent.action = "STOP"
+                    startService(intent)
                 }
-                sendNotification(applicationContext)
-                startService(intent)
-            } else if ("STOP".equals(binding.startStopBtn.text)) {
-                isStartButtonClicked = false
-                binding.startStopBtn.apply {
-                    text = "START"
-                    setBackgroundColor(this.context.resources.getColor(R.color.orange_stop))
-                }
-                stopService(intent)
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
         }
 
@@ -99,8 +123,6 @@ class MainActivity : AppCompatActivity() {
         bigText.setSummaryText("${BaseApp.noOfShiftsGrabbed} Shift grabbed")
         mBuilder.setContentIntent(pendingIntent)
         mBuilder.setSmallIcon(R.drawable.ic_shifty)
-//        mBuilder.setContentTitle("Looking for more available shifts")
-//        mBuilder.setContentText("Your text")
         mBuilder.priority = Notification.PRIORITY_MAX
         mBuilder.setStyle(bigText)
         val mNotificationManager: NotificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -133,33 +155,4 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
-
-    //    fun startWorkManager() {
-//        val data = Data.Builder()
-//        data.putStringArray("IDS_LIST", availableShiftsIdList.toArray(arrayOfNulls<String>(availableShiftsIdList.size)))
-//
-//        val oneTimeWorkRequest = OneTimeWorkRequestBuilder<MyWorkManager>()
-//            .setInputData(data.build())
-//            .build()
-//        WorkManager.getInstance(applicationContext).enqueue(oneTimeWorkRequest)
-//        val workmanager = WorkManager.getInstance(this)
-//        availableShiftsIdList.clear()
-//        if (isStartButtonClicked) {
-//            //Getting work status By using request ID
-//            workmanager.getWorkInfoByIdLiveData(oneTimeWorkRequest.id)
-//                .observe(this, Observer { workInfo: WorkInfo? ->
-//                    if (workInfo != null && workInfo.state.isFinished) {
-//                        val progress = workInfo.progress
-//                        Log.d("TESTING", "(MainActivity) :  observing work manager - progress is - $progress HAS TO BE SUCCESS/CANCELLED/FAILED STATE")
-//                        Log.d("TESTING", "(MainActivity) : observing work manager - BaseApp.noOfShiftsGrabbed value - ${BaseApp.noOfShiftsGrabbed}")
-//                        binding.shiftsNum.text = getString(R.string.shifts_num, BaseApp.noOfShiftsGrabbed.toString())
-//                        Thread.sleep(100)
-//                        checkForAvailableShifts()
-//                    }
-//                })
-//        } else {
-//            workmanager.cancelWorkById(oneTimeWorkRequest.id)
-//        }
-//    }
-
 }

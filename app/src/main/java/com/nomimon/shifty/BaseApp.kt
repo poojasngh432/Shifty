@@ -47,6 +47,7 @@ class BaseApp : Application() {
     }
 
     private fun initData() {
+        noOfShiftsGrabbed = 0
         deviceName = Build.MANUFACTURER + " " + Build.MODEL
         if (deviceName.isEmpty()) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
