@@ -27,7 +27,33 @@ class MainActivity : AppCompatActivity() {
     companion object {
         private var isStartButtonClicked = false
         var availableShiftsIdList: ArrayList<String> = ArrayList()
-        var DELAY = 0
+        var DELAY2 = 0
+        var DELAY3 = 0
+
+        fun sendNotification(context: Context) {
+            val mBuilder = NotificationCompat.Builder(context.applicationContext, "notify_001")
+            val i = Intent(context.applicationContext, MainActivity::class.java)
+            val pendingIntent = PendingIntent.getActivity(context, 0, i, 0)
+            val bigText = NotificationCompat.BigTextStyle()
+            bigText.bigText("${BaseApp.noOfShiftsGrabbed} Shifts grabbed successfully")
+            bigText.setBigContentTitle("Success")
+            bigText.setSummaryText("Shifts grabbed")
+            mBuilder.setContentIntent(pendingIntent)
+            mBuilder.setSmallIcon(R.drawable.ic_shifty)
+            mBuilder.priority = Notification.PRIORITY_MAX
+            mBuilder.setStyle(bigText)
+            val mNotificationManager: NotificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val channelId = "Your_channel_id"
+                val channel = NotificationChannel(channelId, "Shifty Channel", NotificationManager.IMPORTANCE_HIGH)
+                mNotificationManager.createNotificationChannel(channel)
+                mBuilder.setChannelId(channelId)
+            }
+            mNotificationManager.notify(0, mBuilder.build())
+            if(!isStartButtonClicked) {
+                mNotificationManager.cancelAll()
+            }
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -47,18 +73,18 @@ class MainActivity : AppCompatActivity() {
             loginStateText = "Please login!"
         }
         binding.welcome.text = this.getString(R.string.welcome_text, BaseApp.userName, loginStateText)
-        binding.shiftsNum.text = getString(R.string.shifts_num, BaseApp.noOfShiftsGrabbed.toString())
+        binding.shiftsNum.text = BaseApp.noOfShiftsGrabbed.toString()
         val mainHandler = Handler(Looper.getMainLooper())
         mainHandler.post(object : Runnable {
             override fun run() {
-                binding.shiftsNum.text = getString(R.string.shifts_num, BaseApp.noOfShiftsGrabbed.toString())
+                binding.shiftsNum.text = BaseApp.noOfShiftsGrabbed.toString()
                 mainHandler.postDelayed(this, 100)
             }
         })
     }
 
     private fun setOnClickListeners() {
-        binding.setdelayET.addTextChangedListener(object : TextWatcher {
+        binding.setdelay2ET.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence, start: Int, count: Int, after: Int) {
 
             }
@@ -67,14 +93,27 @@ class MainActivity : AppCompatActivity() {
             }
 
             override fun afterTextChanged(s: Editable) {
-                DELAY = s.toString().toInt()
+                DELAY2 = s.toString().toInt()
+            }
+
+        })
+         binding.setdelay3ET.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence, start: Int, count: Int, after: Int) {
+
+            }
+
+            override fun onTextChanged(s: CharSequence, start: Int, before: Int, count: Int) {
+            }
+
+            override fun afterTextChanged(s: Editable) {
+                DELAY3 = s.toString().toInt()
             }
 
         })
         binding.startStopBtn.setOnClickListener {
             try {
                 BaseApp.noOfShiftsGrabbed = 0
-                binding.shiftsNum.text = getString(R.string.shifts_num, BaseApp.noOfShiftsGrabbed.toString())
+                binding.shiftsNum.text = BaseApp.noOfShiftsGrabbed.toString()
                 val intent = Intent(this@MainActivity.getApplicationContext(), MyService::class.java)
                 if ("START".equals(binding.startStopBtn.text)) {
                     isStartButtonClicked = true
@@ -93,6 +132,7 @@ class MainActivity : AppCompatActivity() {
                     }
                     intent.action = "STOP"
                     startService(intent)
+                    sendNotification(this)
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -113,33 +153,11 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun sendNotification(context: Context) {
-        val mBuilder = NotificationCompat.Builder(context.applicationContext, "notify_001")
-        val i = Intent(context.applicationContext, MainActivity::class.java)
-        val pendingIntent = PendingIntent.getActivity(context, 0, i, 0)
-        val bigText = NotificationCompat.BigTextStyle()
-        bigText.bigText("Shifts grabbed successfully")
-        bigText.setBigContentTitle("Success")
-        bigText.setSummaryText("${BaseApp.noOfShiftsGrabbed} Shift grabbed")
-        mBuilder.setContentIntent(pendingIntent)
-        mBuilder.setSmallIcon(R.drawable.ic_shifty)
-        mBuilder.priority = Notification.PRIORITY_MAX
-        mBuilder.setStyle(bigText)
-        val mNotificationManager: NotificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channelId = "Your_channel_id"
-            val channel = NotificationChannel(channelId, "Shifty Channel", NotificationManager.IMPORTANCE_HIGH)
-            mNotificationManager.createNotificationChannel(channel)
-            mBuilder.setChannelId(channelId)
-        }
-        mNotificationManager.notify(0, mBuilder.build())
-    }
-
     override fun onRestart() {
         super.onRestart()
         Log.d("TESTING", "onRestart - calling checkForAvailableShifts()")
         setDataForRestartState()
-        binding.shiftsNum.text = getString(R.string.shifts_num, BaseApp.noOfShiftsGrabbed.toString())
+        binding.shiftsNum.text = BaseApp.noOfShiftsGrabbed.toString()
     }
 
     private fun setDataForRestartState() {

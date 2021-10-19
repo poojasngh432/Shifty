@@ -90,7 +90,7 @@
             android:layout_height="wrap_content"
             android:layout_width="match_parent"
             android:id="@+id/save"
-            android:text="Save"
+            android:text="Login"
             android:textStyle="bold"
             android:textColor="@color/light_grey_silver"
             android:fontFamily="serif"

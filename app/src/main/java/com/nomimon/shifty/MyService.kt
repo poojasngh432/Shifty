@@ -46,6 +46,7 @@ class MyService : Service() {
                                                     if (shiftGrabStatus.contains("CONFIRM")) {
                                                         Log.d("TESTING", "(MyWorkManager) : shiftGrabStatus - ${shiftGrabStatus} for id - $id")
                                                         Log.d("TESTING", "(MyWorkManager) : noOfShiftsGrabbed - ${++BaseApp.noOfShiftsGrabbed} for id - $id")
+                                                        MainActivity.sendNotification(this@MyService)
                                                         return
                                                     } else {
                                                         Log.d("TESTING", "(MyWorkManager) : shiftGrabStatus - ${shiftGrabStatus} for id - $id")
@@ -66,7 +67,7 @@ class MyService : Service() {
                                 } catch (e3: JSONException) {
                                     e3.printStackTrace()
                                 }
-                                val delay = if(MainActivity.DELAY >= 100) MainActivity.DELAY else 0
+                                val delay = if(MainActivity.DELAY3 >= 100) MainActivity.DELAY3 else 0
                                 Thread.sleep(delay.toLong())
                             }
                         }
@@ -88,7 +89,8 @@ class MyService : Service() {
             val r1 = object : Runnable {
                 override fun run() {
                     startGrabbingShifts()
-                    handler.postDelayed(this, 1000)
+                    val delay = if(MainActivity.DELAY2 >= 100) MainActivity.DELAY2 else 0
+                    handler.postDelayed(this, delay.toLong())
                 }
             }
             runnable = r1
@@ -102,6 +104,6 @@ class MyService : Service() {
     }
 
     override fun onBind(intent: Intent?): IBinder? {
-        TODO("Not yet implemented")
+        return null
     }
 }
