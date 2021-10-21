@@ -14,6 +14,7 @@ import android.os.Looper
 import android.text.Editable
 import android.text.TextWatcher
 import android.util.Log
+import android.view.WindowManager
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.NotificationCompat
 import androidx.work.*
@@ -31,7 +32,7 @@ class MainActivity : AppCompatActivity() {
         var DELAY3 = 0
 
         fun sendNotification(context: Context) {
-            val mBuilder = NotificationCompat.Builder(context.applicationContext, "notify_001")
+            val mBuilder = NotificationCompat.Builder(context.applicationContext, "my_channel_id")
             val i = Intent(context.applicationContext, MainActivity::class.java)
             val pendingIntent = PendingIntent.getActivity(context, 0, i, 0)
             val bigText = NotificationCompat.BigTextStyle()
@@ -40,11 +41,11 @@ class MainActivity : AppCompatActivity() {
             bigText.setSummaryText("Shifts grabbed")
             mBuilder.setContentIntent(pendingIntent)
             mBuilder.setSmallIcon(R.drawable.ic_shifty)
-            mBuilder.priority = Notification.PRIORITY_MAX
             mBuilder.setStyle(bigText)
+            mBuilder.priority = NotificationCompat.PRIORITY_MAX
             val mNotificationManager: NotificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                val channelId = "Your_channel_id"
+                val channelId = "my_channel_id"
                 val channel = NotificationChannel(channelId, "Shifty Channel", NotificationManager.IMPORTANCE_HIGH)
                 mNotificationManager.createNotificationChannel(channel)
                 mBuilder.setChannelId(channelId)
@@ -62,6 +63,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
         setData()
         setOnClickListeners()
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
     }
 
     private fun setData() {
@@ -132,7 +134,7 @@ class MainActivity : AppCompatActivity() {
                     }
                     intent.action = "STOP"
                     startService(intent)
-                    sendNotification(this)
+                    sendNotification(applicationContext)
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
